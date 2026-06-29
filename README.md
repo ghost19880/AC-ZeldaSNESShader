@@ -19,6 +19,7 @@ Per mantenere le pennellate ferme rispetto alla mappa, lo shader usa un uniform 
 
 ```glsl
 ScrollOffset
+```
 Questo richiede una piccola modifica al renderer OpenGL di Zelda 3 PC, così il gioco può passare allo shader l’offset della camera (BG2HOFS_copy2, BG2VOFS_copy2).
 Senza questa modifica, lo shader può comunque essere caricato, ma il pattern non resterà correttamente ancorato al mondo durante lo scrolling.
 File principali
@@ -31,7 +32,7 @@ Preset da selezionare nel launcher.
 glsl_shader.c / glsl_shader.h
 Modifica al renderer per esporre ScrollOffset.
 
-Uso
+## Uso
 Nel launcher di Zelda 3 PC:
 Impostare il renderer su OpenGL.
 Abilitare Use GLSL Shader.
