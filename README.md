@@ -1,5 +1,7 @@
 # Zelda 3 Four Swords Adventures Painterly Shader
 
+<img width="800" height="510" alt="Before" src="https://github.com/user-attachments/assets/3bda14c8-2edb-4b26-9164-0dc857091414" /><img width="800" height="509" alt="After" src="https://github.com/user-attachments/assets/d06badf7-99c1-4745-84d7-91237342550f" />
+
 A GLSL post-processing shader for **Zelda 3 PC** that tries to recreate the soft painterly look used in **The Legend of Zelda: Four Swords Adventures** on GameCube.
 
 The shader adds a stylized brush-stroke layer over the original SNES-style image, with softened pixel edges, subtle color grading, light bloom, edge shading, and animated painterly variation.
