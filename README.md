@@ -1,4 +1,3 @@
-```markdown
 # Zelda 3 Four Swords Adventures Painterly Shader
 
 A GLSL post-processing shader for **Zelda 3 PC** that tries to recreate the soft painterly look used in **The Legend of Zelda: Four Swords Adventures** on GameCube.
@@ -160,4 +159,3 @@ The `ScrollOffset` patch is what makes the effect usable during camera movement.
 Inspired by the painterly visual style of **The Legend of Zelda: Four Swords Adventures** for GameCube.
 
 Built for use with **Zelda 3 PC** and its GLSL shader support.
-```
