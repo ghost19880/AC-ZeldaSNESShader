@@ -1,43 +1,163 @@
-# Four Swords Adventures Paint Shader for Zelda 3 PC
+```markdown
+# Zelda 3 Four Swords Adventures Painterly Shader
 
-Shader GLSL per Zelda 3 PC pensato per avvicinare l’aspetto visivo al layer pittorico di *The Legend of Zelda: Four Swords Adventures* / versione GameCube.
+A GLSL post-processing shader for **Zelda 3 PC** that tries to recreate the soft painterly look used in **The Legend of Zelda: Four Swords Adventures** on GameCube.
 
-L’effetto aggiunge sopra la pixel art originale un layer di pennellate semi-trasparenti, irregolari e striate, simulando un tratto di pennello asciutto. Lo shader cerca di ammorbidire leggermente i pixel, fondere alcune aree di colore simile e dare alla scena un aspetto più “dipinto”, senza sostituire completamente la grafica originale.
+The shader adds a stylized brush-stroke layer over the original SNES-style image, with softened pixel edges, subtle color grading, light bloom, edge shading, and animated painterly variation.
 
-## Caratteristiche
+## Features
 
-- Pennellate diagonali ancorate al mondo di gioco.
-- Texture pittorica irregolare con striature interne.
-- Smoothing leggero dei pixel e dei dettagli ad alta frequenza.
-- Fusione dei colori simili per ridurre l’aspetto troppo digitale della pixel art.
-- Effetto post-process GLSL compatibile con il sistema shader di Zelda 3 PC.
-- Preset `.glslp` caricabile dal launcher.
+- Painterly brush-stroke overlay inspired by Four Swords Adventures
+- World-anchored brush pattern
+- Soft global lighting
+- Light bloom on bright pixels
+- Subtle vignette / edge darkening
+- Warmer GameCube-like color grading
+- Selective smoothing and blur
+- Slight shimmer on water / magic-like colors
+- Configurable shader parameters through GLSL `#pragma parameter`
 
-## Nota importante
+## Important: Zelda3.exe Must Be Patched
 
-Per mantenere le pennellate ferme rispetto alla mappa, lo shader usa un uniform custom chiamato:
+By default, Zelda 3 PC shaders only receive the final screen image.  
+That means a shader can see the pixels on screen, but it does **not** know where the camera is in the game world.
+
+For this shader, the brush texture must stay anchored to the map.  
+Without the patch, the brush pattern moves with the screen when the camera scrolls, which looks distracting.
+
+To fix this, `zelda3.exe` must be rebuilt with one extra shader uniform:
 
 ```glsl
 ScrollOffset
 ```
-Questo richiede una piccola modifica al renderer OpenGL di Zelda 3 PC, così il gioco può passare allo shader l’offset della camera (BG2HOFS_copy2, BG2VOFS_copy2).
-Senza questa modifica, lo shader può comunque essere caricato, ma il pattern non resterà correttamente ancorato al mondo durante lo scrolling.
-File principali
-foursword.glsl
-Shader principale.
 
-foursword.glslp
-Preset da selezionare nel launcher.
+This uniform passes the current background scroll/camera offset to the shader, allowing the brush pattern to remain fixed to the world.
 
-glsl_shader.c / glsl_shader.h
-Modifica al renderer per esporre ScrollOffset.
+## What the Patch Changes
 
-## Uso
-Nel launcher di Zelda 3 PC:
-Impostare il renderer su OpenGL.
-Abilitare Use GLSL Shader.
-Selezionare il file:
-foursword.glslp
-Poi avviare il gioco normalmente.
-Obiettivo visivo
-Lo shader non vuole creare un filtro CRT o un semplice blur. L’obiettivo è imitare il layer pittorico visto in Four Swords Adventures: una texture morbida, irregolare, leggermente granulosa/striated, che cambia l’intensità del colore come se fosse applicata con un pennello poco carico.
+The patch modifies:
+
+```text
+src/glsl_shader.c
+src/glsl_shader.h
+```
+
+It adds support for the `ScrollOffset` uniform and sends the current Zelda 3 background scroll values to the active GLSL shader.
+
+The shader then uses:
+
+```glsl
+uniform vec2 ScrollOffset;
+```
+
+to calculate world-space brush coordinates.
+
+## Patcher Tool
+
+This repository includes a small Windows patcher:
+
+```text
+tools/Zelda3ScrollOffsetPatcher/Zelda3ScrollOffsetPatcher.exe
+```
+
+Usage:
+
+1. Run `Zelda3ScrollOffsetPatcher.exe`
+2. Select your `zelda3.exe`
+3. The patcher automatically finds:
+   - `src/glsl_shader.c`
+   - `src/glsl_shader.h`
+   - `radzprower.bat`
+4. It creates backup files:
+   - `glsl_shader.c.bak`
+   - `glsl_shader.h.bak`
+5. It applies the `ScrollOffset` patch
+6. It launches `radzprower.bat` to rebuild `zelda3.exe`
+
+The folder structure must match the standard Zelda 3 PC layout.
+
+Example:
+
+```text
+Zelda 3/
+├─ zelda3.exe
+├─ radzprower.bat
+├─ src/
+│  ├─ glsl_shader.c
+│  └─ glsl_shader.h
+└─ glsl-shaders-master/
+   └─ foursword/
+      ├─ foursword.glsl
+      └─ foursword.glslp
+```
+
+## Shader Files
+
+The shader preset is:
+
+```text
+glsl-shaders-master/foursword/foursword.glslp
+```
+
+The main shader file is:
+
+```text
+glsl-shaders-master/foursword/foursword.glsl
+```
+
+In `zelda3.ini`, the shader should point to the `.glslp` preset:
+
+```ini
+Shader = C:\path\to\Zelda 3\glsl-shaders-master\foursword\foursword.glslp
+```
+
+OpenGL output must be enabled:
+
+```ini
+OutputMethod = OpenGL
+```
+
+## Shader Parameters
+
+The shader exposes several adjustable parameters:
+
+```glsl
+PAINT_STRENGTH
+PAINT_SOFTEN
+PAINT_TINT
+PAINT_CONTRAST
+BRUSH_THRESHOLD
+BRUSH_DISTORT
+SOFT_LIGHT
+BLOOM_STRENGTH
+VIGNETTE_STRENGTH
+GC_COLOR
+SHIMMER_STRENGTH
+PAINT_ANIM
+```
+
+These control the strength of the painterly layer, smoothing, tinting, bloom, vignette, color grading, and animated texture variation.
+
+## Notes
+
+This is not a true GameCube renderer replacement.  
+It is a post-process shader applied to the final Zelda 3 PC frame.
+
+Because of that, it cannot perfectly separate terrain, characters, HUD, water, shadows, or effects. The shader estimates visual areas from color, brightness, and screen-space detail.
+
+The `ScrollOffset` patch is what makes the effect usable during camera movement.
+
+## Limitations
+
+- Requires patched/rebuilt `zelda3.exe`
+- Requires OpenGL output
+- The shader affects the whole final image, including HUD and sprites
+- Some effects are approximations, not real GameCube TEV/material rendering
+- Without `ScrollOffset`, the brush pattern will move with the camera
+
+## Credits
+
+Inspired by the painterly visual style of **The Legend of Zelda: Four Swords Adventures** for GameCube.
+
+Built for use with **Zelda 3 PC** and its GLSL shader support.
+```
