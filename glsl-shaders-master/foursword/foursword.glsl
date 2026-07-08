@@ -10,6 +10,7 @@
 #pragma parameter GC_COLOR "GameCube Color Grade" 0.42 0.0 1.0 0.05
 #pragma parameter SHIMMER_STRENGTH "Water Magic Shimmer" 0.10 0.0 1.0 0.05
 #pragma parameter PAINT_ANIM "Paint Texture Animation" 0.06 0.0 0.5 0.01
+#pragma parameter BROAD_WASH "Broad Paint Wash" 0.72 0.0 1.0 0.05
 
 #if defined(VERTEX)
 #if __VERSION__ >= 130
@@ -92,6 +93,7 @@ uniform COMPAT_PRECISION float VIGNETTE_STRENGTH;
 uniform COMPAT_PRECISION float GC_COLOR;
 uniform COMPAT_PRECISION float SHIMMER_STRENGTH;
 uniform COMPAT_PRECISION float PAINT_ANIM;
+uniform COMPAT_PRECISION float BROAD_WASH;
 #else
 #define PAINT_STRENGTH 2.0
 #define PAINT_SOFTEN 0.72
@@ -105,6 +107,7 @@ uniform COMPAT_PRECISION float PAINT_ANIM;
 #define GC_COLOR 0.42
 #define SHIMMER_STRENGTH 0.10
 #define PAINT_ANIM 0.06
+#define BROAD_WASH 0.72
 #endif
 
 #define vTexCoord TEX0.xy
@@ -130,6 +133,14 @@ float brush_noise(vec2 p)
     float c = hash(i + vec2(0.0, 1.0));
     float d = hash(i + vec2(1.0, 1.0));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+float brush_fbm(vec2 p)
+{
+    float n = brush_noise(p) * 0.50;
+    n += brush_noise(p * 2.17 + vec2(13.7, -8.3)) * 0.31;
+    n += brush_noise(p * 4.41 + vec2(-4.6, 22.9)) * 0.19;
+    return n;
 }
 
 vec3 brush_mask(vec2 p)
@@ -186,15 +197,16 @@ vec3 soft_bloom(vec2 uv, vec2 texel)
     return sum * bright;
 }
 
-float soft_stroke(vec2 p, float angle, float scale)
+float soft_stroke(vec2 p, float scale)
 {
-    float s = sin(angle);
-    float c = cos(angle);
+    float s = 0.7660;
+    float c = -0.6428;
     vec2 q = vec2(c * p.x - s * p.y, s * p.x + c * p.y) * scale;
-    float warp = sin(q.x * 0.37 + hash(floor(q.xx * 0.21)) * 6.2831) * 0.46;
-    float lane = 0.5 + 0.5 * sin(q.y + warp);
-    float body = smoothstep(0.46, 0.84, lane);
-    vec2 cell_q = q * vec2(0.46, 0.74);
+    float warp = brush_noise(q * vec2(0.32, 0.18) + vec2(8.0, 3.0)) * 2.0 - 1.0;
+    warp += sin(q.x * 0.23 + brush_noise(q * 0.11) * 6.2831) * 0.55;
+    float lane = 0.5 + 0.5 * sin(q.y * 0.72 + warp * 1.35);
+    float body = smoothstep(0.42, 0.88, lane);
+    vec2 cell_q = q * vec2(0.22, 0.31);
     vec2 cell = floor(cell_q);
     vec2 cell_f = fract(cell_q);
     float h00 = hash(cell);
@@ -203,14 +215,52 @@ float soft_stroke(vec2 p, float angle, float scale)
     float h11 = hash(cell + vec2(1.0, 1.0));
     vec2 u = cell_f * cell_f * (3.0 - 2.0 * cell_f);
     float smooth_segment = mix(mix(h00, h10, u.x), mix(h01, h11, u.x), u.y);
-    float segment = mix(h00, smooth_segment, 0.65);
-    segment = smoothstep(0.22, 0.70, segment);
-    float bristle_a = 0.5 + 0.5 * sin(q.y * 13.5 + sin(q.x * 0.92) * 1.35);
-    float bristle_b = 0.5 + 0.5 * sin(q.y * 21.0 + sin(q.x * 0.31) * 2.2);
-    float bristles = smoothstep(0.24, 0.88, bristle_a) * 0.62 + smoothstep(0.36, 0.94, bristle_b) * 0.38;
-    float dry = 0.45 + 0.55 * smoothstep(0.18, 0.76, hash(floor(q * vec2(0.95, 0.12))));
-    float grain = 0.42 + 0.58 * bristles * dry;
+    float segment = mix(h00, smooth_segment, 0.82);
+    segment = smoothstep(0.24, 0.72, segment);
+    float bristle_a = 0.5 + 0.5 * sin(q.y * 7.5 + sin(q.x * 0.55) * 1.15);
+    float bristle_b = 0.5 + 0.5 * sin(q.y * 12.0 + sin(q.x * 0.27) * 1.8);
+    float bristles = smoothstep(0.24, 0.86, bristle_a) * 0.62 + smoothstep(0.34, 0.90, bristle_b) * 0.36;
+    vec2 wash_q = q * vec2(0.16, 0.23);
+    wash_q += vec2(brush_noise(q * 0.19 + vec2(31.0, 7.0)), brush_noise(q * 0.17 + vec2(-11.0, 29.0))) * 2.1;
+    float wash = brush_fbm(wash_q + vec2(19.0, -7.0));
+    wash = smoothstep(0.30, 0.78, wash);
+    float grain = mix(0.50 + bristles, wash, BROAD_WASH * 0.34);
     return body * segment * grain;
+}
+
+float fine_stroke(vec2 p, float scale)
+{
+    float s = 0.7660;
+    float c = -0.6428;
+    vec2 q = vec2(c * p.x - s * p.y, s * p.x + c * p.y) * scale;
+    float warp = brush_fbm(q * vec2(0.28, 0.18) + vec2(5.0, -17.0)) * 2.0 - 1.0;
+    float lane = 0.5 + 0.5 * sin(q.y * 0.82 + warp * 1.35);
+    float body = smoothstep(0.46, 0.84, lane);
+    float broken = brush_fbm(q * vec2(0.78, 0.92) + vec2(23.0, 9.0));
+    broken = smoothstep(0.42, 0.84, broken);
+    float dab = brush_fbm(q * vec2(1.18, 0.64) + vec2(-15.0, 37.0));
+    dab = smoothstep(0.38, 0.80, dab);
+    float bristle = 0.5 + 0.5 * sin(q.y * 11.0 + sin(q.x * 0.62) * 1.45);
+    bristle = smoothstep(0.46, 0.88, bristle);
+    return body * broken * dab * (0.68 + bristle * 0.32);
+}
+
+vec4 canvas_variation(vec2 p, float luma)
+{
+    float s = 0.7660;
+    float c = -0.6428;
+    vec2 q = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
+    float weave = brush_fbm(q * vec2(0.18, 0.42) + vec2(3.0, 17.0));
+    float small = brush_fbm(q * vec2(0.62, 1.15) + vec2(-21.0, 6.0));
+    float pools = brush_fbm(p * vec2(0.028, 0.037) + vec2(41.0, -19.0));
+    float cover = brush_fbm(p * vec2(0.020, 0.027) + vec2(-53.0, 18.0));
+    cover = smoothstep(0.18, 0.74, cover);
+    float grain = (weave - 0.5) * 0.032 + (small - 0.5) * 0.018 + (pools - 0.5) * 0.040;
+    grain -= smoothstep(0.62, 0.90, pools) * 0.016;
+    float warm_shift = (brush_noise(q * 0.23 + vec2(9.0, -31.0)) - 0.5) * 0.018;
+    vec3 value = vec3(grain);
+    vec3 chroma = vec3(warm_shift, warm_shift * 0.45, -warm_shift * 0.60);
+    return vec4((value + chroma) * (0.68 + luma * 0.28), cover);
 }
 
 void main()
@@ -229,11 +279,7 @@ void main()
     vec3 color = COMPAT_TEXTURE(Source, paint_uv).rgb;
     vec3 smooth_color = similarity_smooth(paint_uv, texel);
 
-    vec3 blur = smooth_color * 0.46;
-    blur += COMPAT_TEXTURE(Source, paint_uv + vec2(1.0, 0.0) * texel).rgb * 0.135;
-    blur += COMPAT_TEXTURE(Source, paint_uv + vec2(-1.0, 0.0) * texel).rgb * 0.135;
-    blur += COMPAT_TEXTURE(Source, paint_uv + vec2(0.0, 1.0) * texel).rgb * 0.135;
-    blur += COMPAT_TEXTURE(Source, paint_uv + vec2(0.0, -1.0) * texel).rgb * 0.135;
+    vec3 blur = smooth_color;
 
     float detail = length(color - blur);
     float detail_mask = 1.0 - smoothstep(0.10, 0.32, detail);
@@ -241,18 +287,33 @@ void main()
 
     float t = float(FrameCount) * 0.016;
     float anim = 1.0 + (brush_noise(world_px * 0.018 + vec2(t * 0.05, -t * 0.035)) - 0.5) * PAINT_ANIM;
-    float a = soft_stroke(px + vec2(13.0, 5.0), 2.3562, 0.235);
-    float b = soft_stroke(px + vec2(-4.0, 21.0), 2.3562, 0.175);
-    float c = soft_stroke(px + vec2(37.0, -11.0), 2.3562, 0.120);
-    float paint = clamp((a * 0.54 + b * 0.38 + c * 0.26) * mask.z * (0.55 + detail_mask * 0.45) * PAINT_STRENGTH * anim, 0.0, 1.0);
+    float a = soft_stroke(px + vec2(13.0, 5.0), 0.125);
+    float b = soft_stroke(px + vec2(-4.0, 21.0), 0.086);
+    float c = soft_stroke(px + vec2(37.0, -11.0), 0.060);
+    float d = soft_stroke(px + vec2(-31.0, 43.0), 0.040);
+    float fa = fine_stroke(px + vec2(7.0, -3.0), 0.26);
+    float fb = fine_stroke(px + vec2(-19.0, 14.0), 0.36);
+    float fc = fine_stroke(px + vec2(29.0, 31.0), 0.46);
+    vec2 broad_q = px * vec2(0.031, 0.044) + vec2(mask.x * 5.0, mask.y * -5.0);
+    broad_q += vec2(brush_noise(px * 0.021 + vec2(71.0, -12.0)), brush_noise(px * 0.024 + vec2(-35.0, 48.0))) * 3.6;
+    float broad = brush_fbm(broad_q);
+    broad = smoothstep(0.34, 0.74, broad);
+    float fine = fa * 0.15 + fb * 0.13 + fc * 0.10;
+    float paint = clamp((a * 0.34 + b * 0.30 + c * 0.24 + d * 0.20 + fine + broad * BROAD_WASH * 0.12) * mask.z * (0.50 + detail_mask * 0.50) * PAINT_STRENGTH * anim, 0.0, 1.0);
+    vec4 canvas_data = canvas_variation(px + mask.xy * 11.0, luma);
+    vec3 canvas = canvas_data.rgb * PAINT_STRENGTH;
+    float canvas_cover = mix(0.10, 0.74, canvas_data.a);
 
     vec3 warm = vec3(1.035, 1.005, 0.945);
     vec3 cool = vec3(0.94, 0.99, 1.035);
     vec3 tint = mix(vec3(1.0), mix(cool, warm, smoothstep(0.28, 0.78, luma)), PAINT_TINT);
-    vec3 painted = mix(color, blur * tint, PAINT_SOFTEN);
+    vec3 painted = mix(color, blur * tint, clamp(PAINT_SOFTEN - 0.18, 0.0, 1.0));
 
-    painted += paint * vec3(0.038, 0.027, 0.012);
-    painted -= paint * vec3(0.220, 0.184, 0.132);
+    painted += canvas * canvas_cover;
+    painted += canvas * paint * 0.65;
+    painted += paint * vec3(0.048, 0.034, 0.016);
+    painted -= paint * vec3(0.285, 0.235, 0.162);
+    painted += (paint - 0.5) * vec3(0.070, 0.052, 0.030);
     painted -= (1.0 - paint) * 0.018 * detail_mask;
     vec3 bloom = soft_bloom(paint_uv, texel);
     float soft_light = smoothstep(0.12, 0.86, luma) * (1.0 - detail * 0.75);
