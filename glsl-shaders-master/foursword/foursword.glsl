@@ -1,16 +1,16 @@
-#pragma parameter PAINT_STRENGTH "Paint Stroke Strength" 2.0 0.0 2.0 0.05
-#pragma parameter PAINT_SOFTEN "Paint Softening" 0.72 0.0 1.0 0.05
-#pragma parameter PAINT_TINT "Warm/Cool Tint" 0.38 0.0 1.0 0.05
-#pragma parameter PAINT_CONTRAST "Paint Contrast" 1.00 0.5 2.0 0.05
-#pragma parameter BRUSH_THRESHOLD "Brush Threshold" 0.38 0.0 1.0 0.05
-#pragma parameter BRUSH_DISTORT "Brush Edge Distortion" 0.35 0.0 1.5 0.05
-#pragma parameter SOFT_LIGHT "Soft Global Light" 0.22 0.0 1.0 0.05
-#pragma parameter BLOOM_STRENGTH "Light Bloom" 0.26 0.0 1.0 0.05
-#pragma parameter VIGNETTE_STRENGTH "Edge Shading" 0.24 0.0 1.0 0.05
-#pragma parameter GC_COLOR "GameCube Color Grade" 0.42 0.0 1.0 0.05
-#pragma parameter SHIMMER_STRENGTH "Water Magic Shimmer" 0.10 0.0 1.0 0.05
-#pragma parameter PAINT_ANIM "Paint Texture Animation" 0.06 0.0 0.5 0.01
-#pragma parameter BROAD_WASH "Broad Paint Wash" 0.72 0.0 1.0 0.05
+#pragma parameter PAINT_STRENGTH "Paint Stroke Strength" 1.80 0.0 2.5 0.05
+#pragma parameter PAINT_SOFTEN "Paint Softening" 0.92 0.0 1.0 0.05
+#pragma parameter PAINT_TINT "Warm/Cool Tint" 0.24 0.0 1.0 0.05
+#pragma parameter PAINT_CONTRAST "Paint Contrast" 0.94 0.5 2.0 0.05
+#pragma parameter BRUSH_THRESHOLD "Brush Threshold" 0.20 0.0 1.0 0.05
+#pragma parameter BRUSH_DISTORT "Brush Edge Distortion" 0.22 0.0 1.5 0.05
+#pragma parameter SOFT_LIGHT "Soft Global Light" 0.10 0.0 1.0 0.05
+#pragma parameter BLOOM_STRENGTH "Light Bloom" 0.06 0.0 1.0 0.05
+#pragma parameter VIGNETTE_STRENGTH "Edge Shading" 0.06 0.0 1.0 0.05
+#pragma parameter GC_COLOR "GameCube Color Grade" 0.28 0.0 1.0 0.05
+#pragma parameter SHIMMER_STRENGTH "Water Magic Shimmer" 0.03 0.0 1.0 0.05
+#pragma parameter PAINT_ANIM "Paint Texture Animation" 0.00 0.0 0.5 0.01
+#pragma parameter BROAD_WASH "Broad Paint Wash" 1.00 0.0 1.0 0.05
 
 #if defined(VERTEX)
 #if __VERSION__ >= 130
@@ -95,19 +95,19 @@ uniform COMPAT_PRECISION float SHIMMER_STRENGTH;
 uniform COMPAT_PRECISION float PAINT_ANIM;
 uniform COMPAT_PRECISION float BROAD_WASH;
 #else
-#define PAINT_STRENGTH 2.0
-#define PAINT_SOFTEN 0.72
-#define PAINT_TINT 0.38
-#define PAINT_CONTRAST 1.00
-#define BRUSH_THRESHOLD 0.38
-#define BRUSH_DISTORT 0.35
-#define SOFT_LIGHT 0.22
-#define BLOOM_STRENGTH 0.26
-#define VIGNETTE_STRENGTH 0.24
-#define GC_COLOR 0.42
-#define SHIMMER_STRENGTH 0.10
-#define PAINT_ANIM 0.06
-#define BROAD_WASH 0.72
+#define PAINT_STRENGTH 1.80
+#define PAINT_SOFTEN 0.92
+#define PAINT_TINT 0.24
+#define PAINT_CONTRAST 0.94
+#define BRUSH_THRESHOLD 0.20
+#define BRUSH_DISTORT 0.22
+#define SOFT_LIGHT 0.10
+#define BLOOM_STRENGTH 0.06
+#define VIGNETTE_STRENGTH 0.06
+#define GC_COLOR 0.28
+#define SHIMMER_STRENGTH 0.03
+#define PAINT_ANIM 0.00
+#define BROAD_WASH 1.00
 #endif
 
 #define vTexCoord TEX0.xy
@@ -180,6 +180,22 @@ vec3 similarity_smooth(vec2 uv, vec2 texel)
     vec3 diag = (ne * wne + nw * wnw + se * wse + sw * wsw) / max(0.001, wne + wnw + wse + wsw);
     float diag_weight = smoothstep(0.02, 0.18, wne + wnw + wse + wsw);
     return mix(cross, diag, diag_weight * 0.18);
+}
+
+vec3 directional_smooth(vec2 uv, vec2 texel)
+{
+    vec3 c = COMPAT_TEXTURE(Source, uv).rgb;
+    vec2 axis = vec2(0.87, -0.49) * texel;
+    vec3 a = COMPAT_TEXTURE(Source, uv - axis).rgb;
+    vec3 b = COMPAT_TEXTURE(Source, uv + axis).rgb;
+    vec3 d = COMPAT_TEXTURE(Source, uv - axis * 2.0).rgb;
+    vec3 e = COMPAT_TEXTURE(Source, uv + axis * 2.0).rgb;
+    float wa = smoothstep(0.20, 0.025, color_dist(c, a));
+    float wb = smoothstep(0.20, 0.025, color_dist(c, b));
+    float wd = smoothstep(0.16, 0.020, color_dist(c, d));
+    float we = smoothstep(0.16, 0.020, color_dist(c, e));
+    return (c * 2.8 + a * wa + b * wb + d * wd * 0.55 + e * we * 0.55) /
+        (2.8 + wa + wb + (wd + we) * 0.55);
 }
 
 vec3 soft_bloom(vec2 uv, vec2 texel)
@@ -278,8 +294,8 @@ void main()
 
     vec3 color = COMPAT_TEXTURE(Source, paint_uv).rgb;
     vec3 smooth_color = similarity_smooth(paint_uv, texel);
-
-    vec3 blur = smooth_color;
+    vec3 directional_color = directional_smooth(paint_uv, texel);
+    vec3 blur = mix(smooth_color, directional_color, 0.62);
 
     float detail = length(color - blur);
     float detail_mask = 1.0 - smoothstep(0.10, 0.32, detail);
@@ -299,7 +315,7 @@ void main()
     float broad = brush_fbm(broad_q);
     broad = smoothstep(0.34, 0.74, broad);
     float fine = fa * 0.15 + fb * 0.13 + fc * 0.10;
-    float paint = clamp((a * 0.34 + b * 0.30 + c * 0.24 + d * 0.20 + fine + broad * BROAD_WASH * 0.12) * mask.z * (0.50 + detail_mask * 0.50) * PAINT_STRENGTH * anim, 0.0, 1.0);
+    float paint = clamp((a * 0.44 + b * 0.40 + c * 0.32 + d * 0.26 + fine + broad * BROAD_WASH * 0.38) * mask.z * (0.38 + detail_mask * 0.62) * PAINT_STRENGTH * anim, 0.0, 1.0);
     vec4 canvas_data = canvas_variation(px + mask.xy * 11.0, luma);
     vec3 canvas = canvas_data.rgb * PAINT_STRENGTH;
     float canvas_cover = mix(0.10, 0.74, canvas_data.a);
@@ -307,13 +323,13 @@ void main()
     vec3 warm = vec3(1.035, 1.005, 0.945);
     vec3 cool = vec3(0.94, 0.99, 1.035);
     vec3 tint = mix(vec3(1.0), mix(cool, warm, smoothstep(0.28, 0.78, luma)), PAINT_TINT);
-    vec3 painted = mix(color, blur * tint, clamp(PAINT_SOFTEN - 0.18, 0.0, 1.0));
+    vec3 painted = mix(color, blur * tint, PAINT_SOFTEN * (0.55 + detail_mask * 0.35));
 
-    painted += canvas * canvas_cover;
-    painted += canvas * paint * 0.65;
-    painted += paint * vec3(0.048, 0.034, 0.016);
-    painted -= paint * vec3(0.285, 0.235, 0.162);
-    painted += (paint - 0.5) * vec3(0.070, 0.052, 0.030);
+    painted += canvas * canvas_cover * 1.35;
+    painted += canvas * paint * 1.20;
+    painted += paint * vec3(0.042, 0.028, 0.012);
+    painted -= paint * vec3(0.255, 0.208, 0.142);
+    painted += (paint - 0.5) * vec3(0.060, 0.044, 0.022);
     painted -= (1.0 - paint) * 0.018 * detail_mask;
     vec3 bloom = soft_bloom(paint_uv, texel);
     float soft_light = smoothstep(0.12, 0.86, luma) * (1.0 - detail * 0.75);
