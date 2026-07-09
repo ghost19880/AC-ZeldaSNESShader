@@ -1,7 +1,8 @@
 # Zelda 3 Four Swords Adventures Painterly Shader
 
 <img width="800" height="510" alt="Before" src="https://github.com/user-attachments/assets/3bda14c8-2edb-4b26-9164-0dc857091414" />
-<img width="1920" height="1080" alt="Screenshot 2026-07-09 220203" src="https://github.com/user-attachments/assets/6282333d-fb6e-4224-92ae-06bfcd445a8e" />
+<img width="800" height="510" alt="After" src="https://github.com/user-attachments/assets/e1ac2da2-0885-41cb-ac2a-684961ac13d7" />
+
 
 
 
