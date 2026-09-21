@@ -1,0 +1,6 @@
+# Output di compilazione .NET
+bin/
+obj/
+
+# Backup creati dal patcher sui sorgenti di zelda3
+*.bak

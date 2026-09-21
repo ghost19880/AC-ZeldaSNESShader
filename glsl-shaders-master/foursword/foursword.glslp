@@ -1,6 +1,67 @@
-shaders = 1
+# Four Swords Adventures look per zelda3
+# -------------------------------------
+# 1 tensore di struttura  -> in che direzione corre ogni forma
+# 2 flusso                -> direzione resa coerente su zone larghe
+# 3 Kuwahara anisotropo   -> la pennellata vera (3x risoluzione nativa)
+# 4 bloom                 -> alone morbido sulle zone chiare
+# 5 composizione          -> contorni, grana, color grade
 
-shader0 = foursword.glsl
+shaders = 5
+
+shader0 = 01-tensor.glsl
 filter_linear0 = true
 scale_type0 = source
 scale0 = 1.0
+
+shader1 = 02-flow.glsl
+filter_linear1 = false
+scale_type1 = source
+scale1 = 1.0
+
+shader2 = 03-paint.glsl
+filter_linear2 = true
+scale_type2 = source
+scale2 = 3.0
+
+shader3 = 04-bloom.glsl
+filter_linear3 = true
+scale_type3 = source
+scale3 = 0.5
+
+shader4 = 05-final.glsl
+filter_linear4 = true
+
+# --- Regolazioni ---------------------------------------------------------
+# Per cambiare un valore togli il # dalla riga corrispondente e modificalo.
+# La riga "parameters" deve restare PRIMA dei valori: e' quella che registra
+# i nomi, altrimenti zelda3 li ignora con un "Unknown key".
+parameters = "FSA_FLOW_BLUR;FSA_PAINT_RADIUS;FSA_PAINT_SHARP;FSA_STROKE_LEN;FSA_PIXEL_SHARP;FSA_PAINT_MIX;FSA_BLOOM_THRESHOLD;FSA_OUTLINE;FSA_OUTLINE_WARM;FSA_CANVAS;FSA_CANVAS_SCALE;FSA_BLOOM;FSA_SATURATION;FSA_GAMMA;FSA_WARMTH;FSA_CONTRAST;FSA_VIGNETTE;FSA_SOFTEN;FSA_KEEP_SPRITES;FSA_KEEP_HUD;FSA_SKIP_MENUS"
+
+# Pennellata
+#FSA_PAINT_RADIUS = 1.90   # quanto e' grosso il pennello (px SNES)
+#FSA_PAINT_SHARP  = 3.00   # alto = macchie nette, basso = sfumato
+#FSA_STROKE_LEN   = 1.00   # quanto si allungano i tratti sui bordi
+#FSA_PAINT_MIX    = 0.88   # 0 = niente pittura, 1 = tutta pittura
+#FSA_PIXEL_SHARP  = 2.60   # nitidezza dei pixel sorgente
+#FSA_FLOW_BLUR    = 2.20   # coerenza della direzione
+
+# Superficie
+#FSA_CANVAS       = 1.00   # forza della velatura (macchie di pennello)
+#FSA_CANVAS_SCALE = 1.00   # finezza: >1 macchie piu fini, <1 piu larghe
+#FSA_OUTLINE      = 0.28   # forza dei contorni
+#FSA_OUTLINE_WARM = 0.55   # contorni bruni invece che neri
+#FSA_SOFTEN       = 0.18   # morbidezza generale
+
+# Cosa NON dipingere (serve lo zelda3.exe ricompilato)
+#FSA_KEEP_SPRITES = 1.00   # 1 = Link, PNG e nemici restano nitidi
+#FSA_KEEP_HUD     = 1.00   # 1 = cuori, rupie e testi restano nitidi (layer BG3)
+#FSA_SKIP_MENUS   = 1.00   # 1 = inventario e selezione file senza effetto
+
+# Colore e luce
+#FSA_SATURATION   = 1.08
+#FSA_GAMMA        = 1.05
+#FSA_WARMTH       = 0.35
+#FSA_CONTRAST     = 0.18
+#FSA_BLOOM        = 0.22
+#FSA_BLOOM_THRESHOLD = 0.62
+#FSA_VIGNETTE     = 0.06
